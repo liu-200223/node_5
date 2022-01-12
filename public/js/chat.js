@@ -116,6 +116,7 @@ $(() => {
 
     //サーバに接続（connect）する
     let socket = io.connect(url)
+
     socket.on('logined', (data) => {
         if (data.user) {
             user = data.user
@@ -130,6 +131,14 @@ $(() => {
         addMessage(message)
         updateUserList()
     })
+    socket.on('user_left', (data) => {
+        users = data.users
+        let message = data.user.name + 'が退出しました'
+        addMessage(message)
+        updateUserList()
+    })
+
+    //message 受信
     socket.on('message', (data) => {
         createChatMessage(data)
     })
@@ -140,27 +149,54 @@ $(() => {
         if (name && icon) {
             loginArea.hide()
             chatArea.fadeIn(FADE_TIME)
-            //認証（auth）
             socket.emit('auth', {
                 name: name,
                 icon: icon,
             })
         }
     })
-    $('#send' ).on('click', () => {
+
+    $('#send').on('click', () => {
         if (!user.token) return
         if (!message.val()) return
-        socket.emit('message',{
-            user:user,
-            message:message.val(),
+        socket.emit('message', {
+            user: user,
+            message: message.val(),
         })
         message.val('')
     })
+
     $('.stamp').on('click', () => {
         stampList.toggle()
     })
 
+    $('.uploadStamp').on('click', (event) => {
+        console.log('upload stamp!!')
+        const mime_type = 'image/png'
+        const image = new Image()
+        //選択した画像(image)のパスをとる
+        image.src = $(event.target).attr('src')
+        image.onload = (e) => {
+            const canvas = document.createElement('canvas')
+            canvas.width = image.naturalWidth
+            canvas.height = image.naturalHeight
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(image, 0, 0)
+            //画像をエンコーディング
+            const base64 = canvas.toDataURL(mime_type)
+            const data = { user: user, image: base64}
+
+            socket.emit('upload_stamp', data)
+        }
+    })
+
+    socket.on('load_stamp', (data) => {
+        createChatImage(data, { width: STAMP_WIDTH})
+    })
+
     $('#logout').on('click', () => {
+        socket.emit('logout')
+        user = {}
         chatArea.hide()
         loginArea.fadeIn(FADE_TIME)
     })
